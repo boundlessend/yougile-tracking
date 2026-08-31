@@ -13,9 +13,13 @@ compatibility: "Требуется Python 3.10 или новее (использ
 ## Подключение
 
 ```bash
-python3 ~/.claude/skills/yougile-tracking/scripts/yg.py setup
-python3 ~/.claude/skills/yougile-tracking/scripts/yg.py --selfcheck   # проверить установку
+python3 "${CLAUDE_PLUGIN_ROOT}/skills/yougile-tracking/scripts/yg.py" setup
+python3 "${CLAUDE_PLUGIN_ROOT}/skills/yougile-tracking/scripts/yg.py" --selfcheck
 ```
+
+`CLAUDE_PLUGIN_ROOT` подставляется, когда скилл установлен плагином. Если он
+просто скопирован в `~/.claude/skills/yougile-tracking`, путь к скрипту -
+`~/.claude/skills/yougile-tracking/scripts/yg.py`.
 
 `setup` требует настоящего терминала: пароль читается скрытым вводом. Готовый
 ключ можно положить в переменную `YOUGILE_API_KEY`, на Windows это
@@ -24,7 +28,7 @@ python3 ~/.claude/skills/yougile-tracking/scripts/yg.py --selfcheck   # пров
 ## Быстрые команды
 
 ```bash
-YG="python3 ~/.claude/skills/yougile-tracking/scripts/yg.py"
+YG="python3 ${CLAUDE_PLUGIN_ROOT}/skills/yougile-tracking/scripts/yg.py"
 
 $YG users_me '{}'                              # свой id, нужен для "assigned"
 $YG projects_list '{}'
@@ -85,8 +89,8 @@ $YG --list                                     # имена всех 70 инст
 ## Ссылки на задачи
 
 `tasks_get` возвращает `idTaskProject` - короткий код задачи внутри проекта,
-например `CPO-38`. Задача открывается на весь экран по адресу
-`https://ru.yougile.com/team/messenger#CPO-38`.
+например `TASK-42`. Задача открывается на весь экран по адресу
+`https://ru.yougile.com/team/messenger#TASK-42`.
 
 ## Разметка описаний
 

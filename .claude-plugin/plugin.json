@@ -1,0 +1,12 @@
+{
+  "name": "yougile-tracking",
+  "description": "Работа с трекером YouGile через REST API v2: задачи, доски, колонки, проекты, чаты, стикеры и вебхуки. 70 инструментов, покрывающих все операции спецификации, без сторонних зависимостей.",
+  "version": "1.0.0",
+  "author": {
+    "name": "Arseni Okhrimenko",
+    "url": "https://github.com/boundlessend"
+  },
+  "homepage": "https://github.com/boundlessend/yougile-tracking",
+  "license": "BSD-3-Clause",
+  "keywords": ["yougile", "task-tracker", "project-management", "rest-api"]
+}

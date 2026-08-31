@@ -209,7 +209,7 @@ $YG webhooks_create '{"url":"https://example.com/hook","event":"task-*","filters
 
 ## Инструменты
 
-`python3 ~/.claude/skills/yougile-tracking/scripts/yg.py <инструмент> '<json>'`. Вместо
+`python3 "${CLAUDE_PLUGIN_ROOT}/skills/yougile-tracking/scripts/yg.py" <инструмент> '<json>'`. Вместо
 JSON можно передать `-`, тогда аргументы читаются из stdin. `--list` печатает
 имена, `--selfcheck` прогоняет встроенные проверки.
 

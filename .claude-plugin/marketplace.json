@@ -1,0 +1,22 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "senya-plugins",
+  "description": "Плагины для Claude Code: интеграции с трекерами и рабочими сервисами",
+  "owner": {
+    "name": "Arseni Okhrimenko",
+    "url": "https://github.com/boundlessend"
+  },
+  "plugins": [
+    {
+      "name": "yougile-tracking",
+      "source": "./",
+      "description": "Работа с трекером YouGile через REST API v2: задачи, доски, колонки, проекты, чаты, стикеры и вебхуки. 70 инструментов, покрывающих все операции спецификации, без сторонних зависимостей.",
+      "author": {
+        "name": "Arseni Okhrimenko"
+      },
+      "category": "productivity",
+      "homepage": "https://github.com/boundlessend/yougile-tracking",
+      "license": "BSD-3-Clause"
+    }
+  ]
+}
