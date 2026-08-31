@@ -29,9 +29,15 @@ API_ROOT: Final[str] = "https://yougile.com/api-v2"
 SECRET_LABEL: Final[str] = "yougile-api-key"
 ENV_VAR: Final[str] = "YOUGILE_API_KEY"
 
+# 429 приходит при превышении 50 запросов в минуту, пятисотые - при перебоях на стороне
+# сервиса; и то и другое проходит само, поэтому запрос стоит повторить
 RETRY_ON: Final[frozenset[int]] = frozenset({429, 500, 502, 503, 504})
+# трёх попыток хватает: лимит частоты сбрасывается в пределах минуты, а пауза растёт
 RETRY_ATTEMPTS: Final[int] = 3
+# пауза удваивается с каждой попыткой: 2 и 4 секунды, суммарно около 6 секунд ожидания
 RETRY_PAUSE_SEC: Final[float] = 2.0
+# страница по умолчанию 50 строк, максимум API - 1000
+MAX_PAGE: Final[int] = 1000
 
 JsonDict = dict[str, Any]
 JsonValue = JsonDict | list[Any]
@@ -191,8 +197,30 @@ def split_args(route: Route, args: JsonDict) -> tuple[str, JsonDict | None]:
 
 # ─── транспорт ────────────────────────────────────────────────────────
 
+def _explain(code: int) -> str:
+    """подсказать, что делать с кодом ответа: тело ответа у YouGile редко объясняет причину"""
+    hints = {
+        401: "Ключ недействителен или отозван. Проверьте YOUGILE_API_KEY либо перевыпустите"
+             " ключ через 'yg.py setup'.",
+        403: "Ключ рабочий, но у аккаунта нет прав на это действие. Права API совпадают с"
+             " правами аккаунта в интерфейсе.",
+        404: "Объект не найден. Возможно, он помечен удалённым: повторите с"
+             " includeDeleted: true.",
+        400: "Сервер отверг запрос. Проверьте формат полей по references/api.md, но учтите:"
+             " нехватку прав YouGile тоже показывает как 400, а не 403, поэтому на аккаунте"
+             " без прав администратора так отвечают создание проекта и удаление стикера.",
+    }
+    hint = hints.get(code)
+    return f"\n{hint}" if hint else ""
+
+
 def send(method: str, path: str, token: str | None, body: JsonDict | None) -> JsonValue:
-    """выполнить запрос, повторяя его при 429 и пятисотых"""
+    """выполнить запрос, повторяя его при 429 и пятисотых
+
+    POST повторяется только с idempotencyKey в теле: без него повтор оборвавшегося
+    создания заведёт вторую задачу или проект
+    """
+    retriable = method != "POST" or (body is not None and "idempotencyKey" in body)
     request = urllib.request.Request(
         API_ROOT + path,
         data=json.dumps(body).encode() if body is not None else None,
@@ -209,11 +237,17 @@ def send(method: str, path: str, token: str | None, body: JsonDict | None) -> Js
         except urllib.error.HTTPError as failure:
             if failure.code not in RETRY_ON:
                 raise ApiError(
-                    f"{method} {path} -> HTTP {failure.code}: {failure.read().decode()[:500]}"
+                    f"{method} {path} -> HTTP {failure.code}: "
+                    f"{failure.read().decode()[:500]}{_explain(failure.code)}"
                 ) from failure
             last = failure
         except urllib.error.URLError as failure:
             last = failure
+        if not retriable:
+            raise ApiError(
+                f"{method} {path} -> {last}. Повтор не сделан: у POST без idempotencyKey"
+                " он может создать дубль. Добавьте idempotencyKey и повторите."
+            )
         if attempt < RETRY_ATTEMPTS:
             print(f"попытка {attempt} не прошла ({last}), повтор", file=sys.stderr)
             time.sleep(RETRY_PAUSE_SEC * attempt)
@@ -250,18 +284,6 @@ def _keychain_write(label: str, secret: str) -> bool:
         return False
 
 
-def _credential_manager_write(label: str, secret: str) -> bool:
-    """записать секрет в диспетчер учётных данных Windows"""
-    try:
-        subprocess.run(
-            ["cmdkey", f"/generic:{label}", "/user:yougile", f"/pass:{secret}"],
-            capture_output=True, check=True,
-        )
-        return True
-    except (subprocess.CalledProcessError, FileNotFoundError):
-        return False
-
-
 def read_key() -> str:
     """достать ключ: сначала переменная окружения, затем хранилище системы"""
     from_env = os.environ.get(ENV_VAR)
@@ -275,12 +297,13 @@ def read_key() -> str:
 
 
 def save_key(secret: str) -> str:
-    """положить ключ в хранилище системы, вернув название хранилища"""
-    system = platform.system()
-    if system == "Darwin" and _keychain_write(SECRET_LABEL, secret):
+    """положить ключ в связку ключей, вернув её название
+
+    хранилище есть только для macOS: cmdkey на Windows умеет записывать секрет, но не
+    отдавать его обратно, поэтому там ключ живёт в переменной окружения
+    """
+    if platform.system() == "Darwin" and _keychain_write(SECRET_LABEL, secret):
         return "связка ключей macOS"
-    if system == "Windows" and _credential_manager_write(SECRET_LABEL, secret):
-        return "диспетчер учётных данных Windows"
     return ""
 
 
@@ -377,6 +400,20 @@ DIRECT: Final[dict[str, Any]] = {"setup": run_setup, "upload_file": upload_file}
 
 # ─── командная строка ─────────────────────────────────────────────────
 
+# поля, без которых сервер вернёт 400: проверяются заранее, чтобы не тратить запрос
+REQUIRED_BODY: Final[dict[str, tuple[str, ...]]] = {
+    "chat_send": ("text", "textHtml", "label"),
+    "tasks_create": ("title",),
+    "projects_create": ("title",),
+    "boards_create": ("title", "projectId"),
+    "columns_create": ("title", "boardId"),
+    "webhooks_create": ("url", "event", "filters"),
+    "users_invite": ("email",),
+    "roles_create": ("name", "permissions"),
+    "crm_contact_create": ("projectId", "title"),
+}
+
+
 def dispatch(tool: str, args: JsonDict) -> JsonValue:
     """выполнить инструмент по имени"""
     if tool in DIRECT:
@@ -384,9 +421,40 @@ def dispatch(tool: str, args: JsonDict) -> JsonValue:
     route = ROUTES.get(tool)
     if route is None:
         raise UsageError(f"нет такого инструмента: {tool}")
+    absent = [f for f in REQUIRED_BODY.get(tool, ()) if f not in args]
+    if absent:
+        raise UsageError(f"{tool}: не хватает обязательных полей: {', '.join(absent)}")
+    if args.get("all"):
+        return collect_pages(route, args)
     path, body = split_args(route, args)
     token = None if route.anonymous else read_key()
     return send(route.method, path, token, body)
+
+
+def collect_pages(route: Route, args: JsonDict) -> JsonValue:
+    """пройти все страницы списка и вернуть строки одним массивом
+
+    пагинация - самая частая ошибка при работе с этим API: без неё в руках оказываются
+    первые 50 строк, похожие на полный ответ
+    """
+    if route.method != "GET" or "limit" not in route.query:
+        raise UsageError("'all' работает только со списками")
+    token = read_key()
+    query = dict(args)
+    query.pop("all")
+    query["limit"] = MAX_PAGE
+    collected: list[Any] = []
+    offset = 0
+    while True:
+        query["offset"] = offset
+        path, _ = split_args(route, query)
+        page = send("GET", path, token, None)
+        rows = page.get("content", [])
+        collected += rows
+        # пустая страница обрывает обход, даже если сервер продолжает обещать next
+        if not rows or not page.get("paging", {}).get("next"):
+            return {"paging": {"count": len(collected), "all": True}, "content": collected}
+        offset += MAX_PAGE
 
 
 def read_arguments(raw: str | None) -> JsonDict:
@@ -432,6 +500,16 @@ def selfcheck() -> None:
         raise AssertionError("пропущенный сегмент пути должен приводить к ошибке")
 
     assert not set(DIRECT) & set(ROUTES), "инструмент объявлен дважды"
+    assert set(REQUIRED_BODY) <= set(ROUTES), "проверка полей ссылается на несуществующий инструмент"
+    assert _explain(401) and _explain(403) and not _explain(418)
+
+    try:
+        dispatch("chat_send", {"chatId": "x", "text": "привет"})
+    except UsageError as failure:
+        assert "textHtml" in str(failure) and "label" in str(failure), failure
+    else:
+        raise AssertionError("отсутствие обязательных полей должно ловиться до запроса")
+
     print(f"ок: инструментов {len(ROUTES) + len(DIRECT)}")
 
 
