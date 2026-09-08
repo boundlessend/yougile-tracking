@@ -228,21 +228,23 @@ def send(method: str, path: str, token: str | None, body: JsonDict | None) -> Js
         headers={"Content-Type": "application/json"}
         | ({"Authorization": f"Bearer {token}"} if token else {}),
     )
-    last: Exception | None = None
+    last: str | None = None
     for attempt in range(1, RETRY_ATTEMPTS + 1):
         try:
             with urllib.request.urlopen(request) as answer:
                 payload = answer.read().decode()
                 return json.loads(payload) if payload else {}
         except urllib.error.HTTPError as failure:
+            # тело читается сразу: к моменту итоговой ошибки поток уже закрыт
+            detail = failure.read().decode()[:500]
             if failure.code not in RETRY_ON:
                 raise ApiError(
                     f"{method} {path} -> HTTP {failure.code}: "
-                    f"{failure.read().decode()[:500]}{_explain(failure.code)}"
+                    f"{detail}{_explain(failure.code)}"
                 ) from failure
-            last = failure
+            last = f"HTTP {failure.code}: {detail}"
         except urllib.error.URLError as failure:
-            last = failure
+            last = str(failure)
         if not retriable:
             raise ApiError(
                 f"{method} {path} -> {last}. Повтор не сделан: у POST без idempotencyKey"
@@ -257,14 +259,26 @@ def send(method: str, path: str, token: str | None, body: JsonDict | None) -> Js
 # ─── хранение ключа ───────────────────────────────────────────────────
 
 def _keychain_read(label: str) -> str | None:
-    """прочитать пароль из связки ключей macOS"""
+    """прочитать пароль из связки ключей macOS
+
+    код 44 у security значит «записи нет», остальные коды это отказ в доступе или
+    заблокированная связка: выдавать их за отсутствие ключа нельзя
+    """
     try:
-        return subprocess.check_output(
+        answer = subprocess.run(
             ["security", "find-generic-password", "-s", label, "-w"],
-            text=True, stderr=subprocess.DEVNULL,
-        ).strip()
-    except (subprocess.CalledProcessError, FileNotFoundError):
+            capture_output=True, text=True, check=False,
+        )
+    except FileNotFoundError:
         return None
+    if answer.returncode == 0:
+        return answer.stdout.strip()
+    if answer.returncode == 44:
+        return None
+    raise UsageError(
+        f"связка ключей не отдала запись '{label}': security вышел с кодом"
+        f" {answer.returncode}, {answer.stderr.strip()}"
+    )
 
 
 def _keychain_write(label: str, secret: str) -> bool:
@@ -395,6 +409,23 @@ def upload_file(args: JsonDict) -> JsonValue:
         ) from failure
 
 
+def mask_keys(answer: JsonValue) -> JsonValue:
+    """укоротить ключи API в ответе: вывод инструмента оседает в транскрипте
+
+    сервер отдаёт список ключей либо массивом, либо полем content, поэтому
+    разбираются оба вида
+    """
+    if isinstance(answer, dict):
+        rows = answer.get("content")
+        return answer | {"content": mask_keys(rows)} if isinstance(rows, list) else answer
+    return [
+        row | {"key": row["key"][:4] + "..."}
+        if isinstance(row, dict) and isinstance(row.get("key"), str)
+        else row
+        for row in answer
+    ]
+
+
 DIRECT: Final[dict[str, Any]] = {"setup": run_setup, "upload_file": upload_file}
 
 
@@ -428,7 +459,8 @@ def dispatch(tool: str, args: JsonDict) -> JsonValue:
         return collect_pages(route, args)
     path, body = split_args(route, args)
     token = None if route.anonymous else read_key()
-    return send(route.method, path, token, body)
+    answer = send(route.method, path, token, body)
+    return mask_keys(answer) if tool == "auth_list_keys" else answer
 
 
 def collect_pages(route: Route, args: JsonDict) -> JsonValue:
@@ -498,6 +530,13 @@ def selfcheck() -> None:
         pass
     else:
         raise AssertionError("пропущенный сегмент пути должен приводить к ошибке")
+
+    keys = [{"key": "abcd1234efgh", "companyId": "c1"}, {"companyId": "c2"}]
+    assert mask_keys(keys) == [{"key": "abcd...", "companyId": "c1"}, {"companyId": "c2"}]
+    assert keys[0]["key"] == "abcd1234efgh", "аргументы изменились"
+    masked = mask_keys({"content": keys})
+    assert isinstance(masked, dict) and masked["content"][0]["key"] == "abcd..."
+    assert mask_keys({"paging": {}}) == {"paging": {}}
 
     assert not set(DIRECT) & set(ROUTES), "инструмент объявлен дважды"
     assert set(REQUIRED_BODY) <= set(ROUTES), "проверка полей ссылается на несуществующий инструмент"

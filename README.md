@@ -1,5 +1,9 @@
 # Скилл YouGile для Claude Code
 
+A Claude Code plugin for the YouGile task tracker (REST API v2), in Russian.
+Install with `/plugin marketplace add boundlessend/yougile-tracking`, then
+`/plugin install yougile-tracking@senya-plugins`.
+
 Плагин Claude Code для работы с [YouGile](https://yougile.com) через REST API v2.
 Один файл на Python, только стандартная библиотека, зависимостей нет.
 Нужен Python 3.10 или новее.
@@ -18,8 +22,13 @@
 Затем один раз получить ключ API:
 
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/skills/yougile-tracking/scripts/yg.py" setup
+YG=$(ls -d ~/.claude/plugins/cache/senya-plugins/yougile-tracking/*/skills/yougile-tracking/scripts/yg.py | tail -1)
+python3 "$YG" setup
 ```
+
+Переменной `CLAUDE_PLUGIN_ROOT` в обычной оболочке нет, она подставляется только
+внутри Claude Code, поэтому в терминале путь берётся из каталога установленного
+плагина: версия в нём меняется с каждым обновлением.
 
 Команда спросит почту и пароль от аккаунта, создаст ключ и положит его в связку
 ключей macOS. Нужен настоящий терминал: пароль читается скрытым вводом и требует
@@ -28,8 +37,13 @@ tty, через агента запустить не выйдет. Если кл
 `yougile-api-key`. На Windows связки ключей нет, там работает только переменная
 окружения.
 
-Проверить установку: `yg.py --selfcheck`. Проверка работает без сети, она сверяет
-сборку запросов, а не доступ к сервису.
+Каждый запуск `setup` создаёт на сервере новый ключ, а прежний остаётся
+действующим: локальная копия перезаписывается, отзыва не происходит. Лимит - 30
+ключей на аккаунт, лишние смотрят через `auth_list_keys` и снимают через
+`auth_delete_key`.
+
+Проверить установку: `python3 "$YG" --selfcheck`. Проверка работает без сети,
+она сверяет сборку запросов, а не доступ к сервису.
 
 Обновления приезжают штатно:
 
@@ -43,11 +57,11 @@ tty, через агента запустить не выйдет. Если кл
 Обычно скилл вызывается сам, когда речь заходит о задачах в YouGile. Вручную:
 
 ```bash
-YG="python3 ${CLAUDE_PLUGIN_ROOT}/skills/yougile-tracking/scripts/yg.py"
-$YG users_me '{}'
-$YG projects_list '{}'
-$YG tasks_list '{"all":true}'
-$YG tasks_create '{"title":"Починить форму входа","columnId":"<id-колонки>"}'
+YG=$(ls -d ~/.claude/plugins/cache/senya-plugins/yougile-tracking/*/skills/yougile-tracking/scripts/yg.py | tail -1)
+python3 "$YG" users_me '{}'
+python3 "$YG" projects_list '{}'
+python3 "$YG" tasks_list '{"all":true}'
+python3 "$YG" tasks_create '{"title":"Починить форму входа","columnId":"<id-колонки>"}'
 ```
 
 Аргументы передаются одним объектом JSON, `-` вместо него читает их из stdin.
