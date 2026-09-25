@@ -1,6 +1,6 @@
 {
   "name": "senya-plugins",
-  "description": "Плагины для Claude Code: интеграции с трекерами и рабочими сервисами",
+  "description": "Плагины для Claude Code",
   "owner": {
     "name": "Arseni Okhrimenko",
     "url": "https://github.com/boundlessend"
@@ -16,6 +16,22 @@
       "category": "productivity",
       "homepage": "https://github.com/boundlessend/yougile-tracking",
       "license": "BSD-3-Clause"
+    },
+    {
+      "name": "ru-science-search",
+      "source": {
+        "source": "github",
+        "repo": "boundlessend/ru-science-search"
+      },
+      "description": "Поиск научных статей в КиберЛенинке (русскоязычные журналы, отметка ВАК) и OpenAlex: авторы, год, журнал, аннотация и ссылка."
+    },
+    {
+      "name": "roxy",
+      "source": {
+        "source": "github",
+        "repo": "boundlessend/roxy"
+      },
+      "description": "Персона Roxy Migurdia: спокойный методичный тон наставника без потери технической точности, уровни off, lite, full и ultra."
     }
   ]
 }
