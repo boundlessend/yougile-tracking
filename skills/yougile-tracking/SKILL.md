@@ -7,42 +7,33 @@ compatibility: "Требуется Python 3.9 или новее. Сторонн�
 
 # YouGile
 
-Клиент YouGile REST API v2. Один файл на Python, только стандартная библиотека,
-нужен Python 3.9 или новее.
+Клиент YouGile REST API v2: `python3 "${CLAUDE_SKILL_DIR}/scripts/yg.py"`, ниже
+просто `yg.py`. Переменные между вызовами Bash не сохраняются, поэтому путь
+пишется в каждой команде целиком.
 
 ## Подключение
 
-```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/skills/yougile-tracking/scripts/yg.py" setup
-python3 "${CLAUDE_PLUGIN_ROOT}/skills/yougile-tracking/scripts/yg.py" --selfcheck
-```
+Ключ получает человек в своём терминале командой `yg.py setup`: пароль
+читается скрытым вводом. Готовый ключ можно положить в переменную
+`YOUGILE_API_KEY`, на Windows это единственный способ. `yg.py --selfcheck`
+проверяет установку без сети.
 
-`CLAUDE_PLUGIN_ROOT` подставляется, когда скилл установлен плагином. Если он
-просто скопирован в `~/.claude/skills/yougile-tracking`, путь к скрипту -
-`~/.claude/skills/yougile-tracking/scripts/yg.py`.
-
-`setup` требует настоящего терминала: пароль читается скрытым вводом. Готовый
-ключ можно положить в переменную `YOUGILE_API_KEY`, на Windows это
-единственный способ.
-
-`setup` и инструменты `auth_*` запускает человек сам. Агент их не вызывает и не
-просит прислать пароль или ключ в чат: логин, пароль и ключ пройдут через
-аргументы и вывод, а оттуда попадут в транскрипт. В ответе `auth_list_keys`
-ключи усечены до первых символов.
+`setup` и инструменты `auth_*` агент не вызывает и не просит прислать пароль
+или ключ в чат: логин, пароль и ключ пройдут через аргументы и вывод, а оттуда
+попадут в транскрипт. В ответе `auth_list_keys` ключи усечены до первых
+символов.
 
 ## Быстрые команды
 
 ```bash
-YG="python3 ${CLAUDE_PLUGIN_ROOT}/skills/yougile-tracking/scripts/yg.py"
-
-$YG users_me '{}'                              # свой id, нужен для "assigned"
-$YG projects_list '{}'
-$YG boards_list '{"projectId":"<id-проекта>"}'
-$YG columns_list '{"boardId":"<id-доски>"}'
-$YG tasks_list '{"columnId":"<id-колонки>","all":true,"fields":["id","title","completed"]}'
-$YG tasks_create '{"title":"Починить форму входа","columnId":"<id-колонки>"}'
-$YG tasks_update '{"id":"<id-задачи>","completed":true}'
-$YG --list          # 70 инструментов: метод, путь, фильтры, обязательные поля
+yg.py users_me '{}'                              # свой id, нужен для "assigned"
+yg.py projects_list '{}'
+yg.py boards_list '{"projectId":"<id-проекта>"}'
+yg.py columns_list '{"boardId":"<id-доски>"}'
+yg.py tasks_list '{"columnId":"<id-колонки>","all":true,"fields":["id","title","completed"]}'
+yg.py tasks_create '{"title":"Починить форму входа","columnId":"<id-колонки>"}'
+yg.py tasks_update '{"id":"<id-задачи>","completed":true}'
+yg.py --list          # 70 инструментов: метод, путь, фильтры, обязательные поля
 ```
 
 Аргументы это один объект JSON, `-` читает их из stdin. Поля задачи, цвета,
