@@ -4,7 +4,7 @@
     yg.py <инструмент> '{"ключ": "значение"}'
     yg.py <инструмент> -          # аргументы из stdin
     yg.py setup                   # получить и сохранить ключ
-    yg.py --list                  # перечислить инструменты
+    yg.py --list                  # инструменты: метод, путь, фильтры, обязательные поля
     yg.py --selfcheck             # прогнать встроенные проверки
 """
 
@@ -444,18 +444,66 @@ DIRECT: Final[dict[str, Any]] = {"setup": run_setup, "upload_file": upload_file}
 
 # ─── командная строка ─────────────────────────────────────────────────
 
-# поля, без которых сервер вернёт 400: проверяются заранее, чтобы не тратить запрос
+# поля тела, обязательные по спецификации OpenAPI: без них сервер вернёт 400, поэтому
+# они проверяются заранее, чтобы не тратить запрос
 REQUIRED_BODY: Final[dict[str, tuple[str, ...]]] = {
+    "auth_companies": ("login", "password"),
+    "auth_create_key": ("login", "password", "companyId"),
+    "auth_list_keys": ("login", "password"),
     "chat_send": ("text", "textHtml", "label"),
     "tasks_create": ("title",),
     "projects_create": ("title",),
     "boards_create": ("title", "projectId"),
     "columns_create": ("title", "boardId"),
+    "departments_create": ("title",),
+    "group_chats_create": ("title", "users", "userRoleMap", "roleConfigMap"),
+    "stickers_create": ("name",),
+    "sticker_states_create": ("name",),
+    "sprint_stickers_create": ("name",),
+    "sprint_states_create": ("name",),
     "webhooks_create": ("url", "event", "filters"),
     "users_invite": ("email",),
     "roles_create": ("name", "permissions"),
     "crm_contact_create": ("projectId", "title"),
 }
+
+# пояснения для --list там, где имени, метода и пути мало
+NOTES: Final[dict[str, str]] = {
+    "setup": "получить ключ API и сохранить его; запускает человек в своём терминале",
+    "upload_file": "загрузить файл и получить его адрес; нужен path",
+    "auth_companies": "компании аккаунта",
+    "auth_list_keys": "ключи аккаунта, в выводе усечены",
+    "auth_delete_key": "необратимо",
+    "company_get": "компания, к которой привязан ключ",
+    "company_update": "можно title, apiData, deleted",
+    "tasks_list": "свежие сверху",
+    "tasks_list_chrono": "в прямом порядке",
+    "task_subscribers_update": "заменяет участников чата целиком, массив id в content",
+    "users_invite": "пригласить в компанию",
+    "users_delete": "убрать из компании, необратимо",
+    "roles_delete": "необратимо",
+    "chat_messages": "id чата задачи совпадает с id задачи",
+    "chat_message_update": "можно label, react, deleted",
+    "chat_typing": "показать, что пользователь печатает",
+    "sprint_states_create": "состояние спринтового стикера это спринт с begin и end",
+    "crm_contact_find": "контакт по внешнему id",
+}
+
+
+def describe_tool(name: str) -> str:
+    """строка справочника для --list: метод, путь, фильтры, обязательные поля, пояснение"""
+    parts = [name]
+    route = ROUTES.get(name)
+    if route is not None:
+        parts.append(f"{route.method} {route.path}")
+        if route.query:
+            parts.append("фильтры: " + ", ".join(route.query))
+    required = REQUIRED_BODY.get(name)
+    if required:
+        parts.append("обязательно: " + ", ".join(required))
+    if name in NOTES:
+        parts.append(NOTES[name])
+    return " | ".join(parts)
 
 
 def is_list(route: Route) -> bool:
@@ -585,6 +633,8 @@ def selfcheck() -> None:
 
     assert not set(DIRECT) & set(ROUTES), "инструмент объявлен дважды"
     assert set(REQUIRED_BODY) <= set(ROUTES), "проверка полей ссылается на несуществующий инструмент"
+    assert set(NOTES) <= set(ROUTES) | set(DIRECT), "пояснение к несуществующему инструменту"
+    assert describe_tool("tasks_create") == "tasks_create | POST /tasks | обязательно: title"
     assert _explain(401) and _explain(403) and not _explain(418)
 
     try:
@@ -613,7 +663,7 @@ def main(argv: list[str]) -> int:
         selfcheck()
         return 0
     if argv[0] == "--list":
-        print("\n".join(sorted(set(ROUTES) | set(DIRECT))))
+        print("\n".join(describe_tool(name) for name in [*ROUTES, *DIRECT]))
         return 0
 
     try:

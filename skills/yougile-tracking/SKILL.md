@@ -42,11 +42,11 @@ $YG columns_list '{"boardId":"<id-доски>"}'
 $YG tasks_list '{"columnId":"<id-колонки>","all":true,"fields":["id","title","completed"]}'
 $YG tasks_create '{"title":"Починить форму входа","columnId":"<id-колонки>"}'
 $YG tasks_update '{"id":"<id-задачи>","completed":true}'
-$YG --list                                     # имена всех 70 инструментов
+$YG --list          # 70 инструментов: метод, путь, фильтры, обязательные поля
 ```
 
-Аргументы это один объект JSON, `-` читает их из stdin. Полный справочник с
-инструментами, полями и цветами: `references/api.md`.
+Аргументы это один объект JSON, `-` читает их из stdin. Поля задачи, цвета,
+стикеры и вебхуки: `references/api.md`.
 
 ## Как создать задачу
 

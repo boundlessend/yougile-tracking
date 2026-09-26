@@ -16,7 +16,7 @@
 - Вебхуки: события и фильтры
 - Ограничения, коды ответов, повторы запросов
 - Устройство данных: компания, проект, доска, колонка, задача
-- Полный список инструментов с эндпоинтами
+- Инструменты
 - Где хранится ключ
 - Проверка скилла
 
@@ -211,82 +211,11 @@ $YG webhooks_create '{"url":"https://example.com/hook","event":"task-*","filters
 
 ## Инструменты
 
-`python3 "${CLAUDE_PLUGIN_ROOT}/skills/yougile-tracking/scripts/yg.py" <инструмент> '<json>'`. Вместо
-JSON можно передать `-`, тогда аргументы читаются из stdin. `--list` печатает
-имена, `--selfcheck` прогоняет встроенные проверки.
-
-| Инструмент | Эндпоинт | Что делает |
-|------------|----------|------------|
-| `setup` | - | Получить ключ API и сохранить в хранилище системы |
-| `auth_companies` | `POST /auth/companies` | Список компаний по логину и паролю |
-| `auth_create_key` | `POST /auth/keys` | Создать ключ. Нужны login, password, companyId |
-| `auth_list_keys` | `POST /auth/keys/get` | Список ключей. Нужны login, password |
-| `auth_delete_key` | `DELETE /auth/keys/{key}` | Удалить ключ. Нужен key |
-| `company_get` | `GET /companies` | Данные компании, к которой привязан ключ |
-| `company_update` | `PUT /companies` | Изменить компанию. Можно title, apiData, deleted |
-| `projects_list` | `GET /projects` | Список проектов |
-| `projects_get` | `GET /projects/{id}` | Проект по id |
-| `projects_create` | `POST /projects` | Создать проект. Нужен title |
-| `projects_update` | `PUT /projects/{id}` | Изменить проект |
-| `roles_list` | `GET /projects/{projectId}/roles` | Список ролей проекта |
-| `roles_get` | `GET /projects/{projectId}/roles/{id}` | Роль по id |
-| `roles_create` | `POST /projects/{projectId}/roles` | Создать роль. Нужны projectId, name, permissions |
-| `roles_update` | `PUT /projects/{projectId}/roles/{id}` | Изменить роль |
-| `roles_delete` | `DELETE /projects/{projectId}/roles/{id}` | Удалить роль |
-| `boards_list` | `GET /boards` | Список досок |
-| `boards_get` | `GET /boards/{id}` | Доска по id |
-| `boards_create` | `POST /boards` | Создать доску. Нужны title, projectId |
-| `boards_update` | `PUT /boards/{id}` | Изменить доску |
-| `columns_list` | `GET /columns` | Список колонок |
-| `columns_get` | `GET /columns/{id}` | Колонка по id |
-| `columns_create` | `POST /columns` | Создать колонку. Нужны title, boardId |
-| `columns_update` | `PUT /columns/{id}` | Изменить колонку |
-| `tasks_list` | `GET /tasks` | Задачи, свежие сверху |
-| `tasks_list_chrono` | `GET /task-list` | Задачи в прямом порядке |
-| `tasks_get` | `GET /tasks/{id}` | Задача по id |
-| `tasks_create` | `POST /tasks` | Создать задачу. Нужен title |
-| `tasks_update` | `PUT /tasks/{id}` | Изменить задачу |
-| `task_subscribers_get` | `GET /tasks/{id}/chat-subscribers` | Участники чата задачи |
-| `task_subscribers_update` | `PUT /tasks/{id}/chat-subscribers` | Заменить участников чата. Нужны id, content |
-| `users_list` | `GET /users` | Список сотрудников |
-| `users_get` | `GET /users/{id}` | Сотрудник по id |
-| `users_me` | `GET /users/me` | Текущий пользователь |
-| `users_invite` | `POST /users` | Пригласить в компанию. Нужен email |
-| `users_update` | `PUT /users/{id}` | Изменить сотрудника |
-| `users_delete` | `DELETE /users/{id}` | Убрать сотрудника из компании |
-| `departments_list` | `GET /departments` | Список отделов |
-| `departments_get` | `GET /departments/{id}` | Отдел по id |
-| `departments_create` | `POST /departments` | Создать отдел. Нужен title |
-| `departments_update` | `PUT /departments/{id}` | Изменить отдел |
-| `chat_messages` | `GET /chats/{chatId}/messages` | История чата. Нужен chatId |
-| `chat_send` | `POST /chats/{chatId}/messages` | Написать в чат. Нужны chatId, text, textHtml, label |
-| `chat_message_get` | `GET /chats/{chatId}/messages/{id}` | Сообщение по id |
-| `chat_message_update` | `PUT /chats/{chatId}/messages/{id}` | Изменить сообщение. Можно label, react, deleted |
-| `chat_typing` | `POST /chats/{chatId}/typing` | Показать, что пользователь печатает |
-| `group_chats_list` | `GET /group-chats` | Список групповых чатов |
-| `group_chats_get` | `GET /group-chats/{id}` | Групповой чат по id |
-| `group_chats_create` | `POST /group-chats` | Создать групповой чат |
-| `group_chats_update` | `PUT /group-chats/{id}` | Изменить групповой чат |
-| `stickers_list` | `GET /string-stickers` | Список текстовых стикеров |
-| `stickers_get` | `GET /string-stickers/{id}` | Стикер по id |
-| `stickers_create` | `POST /string-stickers` | Создать стикер. Нужен name |
-| `stickers_update` | `PUT /string-stickers/{id}` | Изменить стикер |
-| `sticker_states_create` | `POST /string-stickers/{stickerId}/states` | Добавить состояние. Нужны stickerId, name |
-| `sticker_states_get` | `GET /string-stickers/{stickerId}/states/{stateId}` | Состояние по id |
-| `sticker_states_update` | `PUT /string-stickers/{stickerId}/states/{stateId}` | Изменить состояние |
-| `sprint_stickers_list` | `GET /sprint-stickers` | Список спринтовых стикеров |
-| `sprint_stickers_get` | `GET /sprint-stickers/{id}` | Спринтовый стикер по id |
-| `sprint_stickers_create` | `POST /sprint-stickers` | Создать спринтовый стикер. Нужен name |
-| `sprint_stickers_update` | `PUT /sprint-stickers/{id}` | Изменить спринтовый стикер |
-| `sprint_states_create` | `POST /sprint-stickers/{stickerId}/states` | Добавить спринт. Нужны stickerId, name |
-| `sprint_states_get` | `GET /sprint-stickers/{stickerId}/states/{stateId}` | Спринт по id |
-| `sprint_states_update` | `PUT /sprint-stickers/{stickerId}/states/{stateId}` | Изменить спринт |
-| `webhooks_list` | `GET /webhooks` | Список подписок |
-| `webhooks_create` | `POST /webhooks` | Подписаться. Нужны url, event, filters |
-| `webhooks_update` | `PUT /webhooks/{id}` | Изменить подписку |
-| `crm_contact_create` | `POST /crm/contact-persons` | Создать контактное лицо. Нужны projectId, title |
-| `crm_contact_find` | `GET /crm/contacts/by-external-id` | Найти контакт по внешнему id. Нужны provider, chatId |
-| `upload_file` | `POST /upload-file` | Загрузить файл, возвращает его адрес. Нужен `path` |
+`scripts/yg.py <инструмент> '<json>'`, вместо JSON можно передать `-`, тогда
+аргументы читаются из stdin. `--list` печатает все 70 инструментов с методом,
+путём, фильтрами, обязательными полями и пояснениями: это и есть справочник,
+он собирается из таблиц самого клиента и не расходится с ним. `--selfcheck`
+прогоняет встроенные проверки.
 
 ## Где хранится ключ
 
