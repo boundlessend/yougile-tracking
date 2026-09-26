@@ -356,11 +356,28 @@ def _pick_company(companies: list[JsonDict], index: Any) -> JsonDict:
     return _pick_company(companies, input(f"Компания [1-{len(companies)}]: ").strip())
 
 
+def live_key(listed: JsonValue, company_id: str) -> str | None:
+    """самый свежий неудалённый ключ компании из ответа auth_list_keys
+
+    сервер отдаёт список ключей либо массивом, либо полем content
+    """
+    rows = listed.get("content", []) if isinstance(listed, dict) else listed
+    alive = [
+        row for row in rows
+        if row.get("companyId") == company_id and not row.get("deleted")
+    ]
+    if not alive:
+        return None
+    return max(alive, key=lambda row: row.get("timestamp", 0))["key"]
+
+
 def run_setup(args: JsonDict) -> JsonValue:
     """получить ключ по логину и паролю и сохранить его
 
-    логин и пароль можно передать аргументами, иначе они спрашиваются в терминале;
-    пароль читается скрытым вводом, поэтому нужен настоящий tty
+    действующий ключ компании переиспользуется: на аккаунт положено не больше 30 ключей,
+    а каждый новый остаётся на сервере до удаления. логин и пароль можно передать
+    аргументами, иначе они спрашиваются в терминале; пароль читается скрытым вводом,
+    поэтому нужен настоящий tty
     """
     login = args.get("login") or input("Почта YouGile: ").strip()
     password = args.get("password") or getpass("Пароль: ").strip()
@@ -373,8 +390,11 @@ def run_setup(args: JsonDict) -> JsonValue:
         raise UsageError("у аккаунта нет компаний")
 
     chosen = _pick_company(companies, args.get("companyIndex"))
-    key = send("POST", "/auth/keys", None,
-               credentials | {"companyId": chosen["id"]}).get("key")
+    key = live_key(send("POST", "/auth/keys/get", None, credentials), chosen["id"])
+    reused = key is not None
+    if key is None:
+        key = send("POST", "/auth/keys", None,
+                   credentials | {"companyId": chosen["id"]}).get("key")
     if not key:
         raise ApiError("сервер не вернул ключ")
 
@@ -384,7 +404,7 @@ def run_setup(args: JsonDict) -> JsonValue:
     else:
         print(f"сохранить не удалось, задайте вручную:\n  export {ENV_VAR}='{key}'",
               file=sys.stderr)
-    return {"company": chosen["name"], "stored": where or None}
+    return {"company": chosen["name"], "stored": where or None, "reused": reused}
 
 
 def upload_file(args: JsonDict) -> JsonValue:
@@ -626,6 +646,16 @@ def selfcheck() -> None:
     masked = mask_keys({"content": keys})
     assert isinstance(masked, dict) and masked["content"][0]["key"] == "abcd..."
     assert mask_keys({"paging": {}}) == {"paging": {}}
+
+    listed = [
+        {"key": "old", "companyId": "c", "timestamp": 1, "deleted": False},
+        {"key": "gone", "companyId": "c", "timestamp": 3, "deleted": True},
+        {"key": "new", "companyId": "c", "timestamp": 2, "deleted": False},
+        {"key": "other", "companyId": "x", "timestamp": 4, "deleted": False},
+    ]
+    assert live_key(listed, "c") == "new"
+    assert live_key({"content": listed}, "x") == "other"
+    assert live_key(listed, "none") is None
 
     page = {"paging": {"next": False}, "content": [{"id": "1", "title": "t", "description": "d"}]}
     assert pick_fields(page, ["id", "absent"]) == {"paging": {"next": False}, "content": [{"id": "1"}]}
