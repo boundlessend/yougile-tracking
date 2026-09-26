@@ -24,7 +24,7 @@ import urllib.parse
 import urllib.request
 import uuid
 from getpass import getpass
-from typing import Any, Final, NamedTuple
+from typing import Any, Final, NamedTuple, Union
 
 API_ROOT: Final[str] = "https://yougile.com/api-v2"
 SECRET_LABEL: Final[str] = "yougile-api-key"
@@ -46,7 +46,8 @@ TIMEOUT_SEC: Final[float] = 30.0
 MAX_PAGE: Final[int] = 1000
 
 JsonDict = dict[str, Any]
-JsonValue = JsonDict | list[Any]
+# Union, а не |: выражение вычисляется при импорте, а системный python3 на macOS это 3.9
+JsonValue = Union[JsonDict, list[Any]]
 
 
 class ApiError(RuntimeError):
