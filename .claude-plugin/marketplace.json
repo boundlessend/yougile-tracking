@@ -23,7 +23,13 @@
         "source": "github",
         "repo": "boundlessend/ru-science-search"
       },
-      "description": "Поиск научных статей в КиберЛенинке (русскоязычные журналы, отметка ВАК) и OpenAlex: авторы, год, журнал, аннотация и ссылка."
+      "description": "Поиск научных статей в КиберЛенинке (русскоязычные журналы, отметка ВАК) и OpenAlex: авторы, год, журнал, аннотация и ссылка.",
+      "author": {
+        "name": "Arseni Okhrimenko"
+      },
+      "category": "productivity",
+      "homepage": "https://github.com/boundlessend/ru-science-search",
+      "license": "BSD-3-Clause"
     },
     {
       "name": "roxy",
@@ -31,7 +37,13 @@
         "source": "github",
         "repo": "boundlessend/roxy"
       },
-      "description": "Roxy Migurdia persona: the calm, methodical tone of a mentor with full technical accuracy, levels off, lite, full and ultra."
+      "description": "Roxy Migurdia persona: the calm, methodical tone of a mentor with full technical accuracy, levels off, lite, full and ultra.",
+      "author": {
+        "name": "Arseni Okhrimenko"
+      },
+      "category": "learning",
+      "homepage": "https://github.com/boundlessend/roxy",
+      "license": "BSD-3-Clause"
     }
   ]
 }
