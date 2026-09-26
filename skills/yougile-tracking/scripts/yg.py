@@ -10,6 +10,7 @@
 
 from __future__ import annotations
 
+import http.client
 import json
 import mimetypes
 import os
@@ -32,10 +33,15 @@ ENV_VAR: Final[str] = "YOUGILE_API_KEY"
 # 429 приходит при превышении 50 запросов в минуту, пятисотые - при перебоях на стороне
 # сервиса; и то и другое проходит само, поэтому запрос стоит повторить
 RETRY_ON: Final[frozenset[int]] = frozenset({429, 500, 502, 503, 504})
-# трёх попыток хватает: лимит частоты сбрасывается в пределах минуты, а пауза растёт
+RATE_LIMITED: Final[int] = 429
 RETRY_ATTEMPTS: Final[int] = 3
-# пауза удваивается с каждой попыткой: 2 и 4 секунды, суммарно около 6 секунд ожидания
+# после сбоя пауза удваивается с каждой попыткой: 2 и 4 секунды
 RETRY_PAUSE_SEC: Final[float] = 2.0
+# лимит считается за минуту, а Retry-After спецификация не обещает: две паузы по 30 секунд
+# гарантированно переживают окно и укладываются в двухминутный таймаут вызова у агента
+RATE_PAUSE_SEC: Final[float] = 30.0
+# без таймаута подвисшее соединение держит вызов бесконечно
+TIMEOUT_SEC: Final[float] = 30.0
 # страница по умолчанию 50 строк, максимум API - 1000
 MAX_PAGE: Final[int] = 1000
 
@@ -215,7 +221,7 @@ def _explain(code: int) -> str:
 
 
 def send(method: str, path: str, token: str | None, body: JsonDict | None) -> JsonValue:
-    """выполнить запрос, повторяя его при 429 и пятисотых
+    """выполнить запрос с телом JSON
 
     POST повторяется только с idempotencyKey в теле: без него повтор оборвавшегося
     создания заведёт вторую задачу или проект
@@ -228,10 +234,17 @@ def send(method: str, path: str, token: str | None, body: JsonDict | None) -> Js
         headers={"Content-Type": "application/json"}
         | ({"Authorization": f"Bearer {token}"} if token else {}),
     )
+    return perform(request, retriable)
+
+
+def perform(request: urllib.request.Request, retriable: bool) -> JsonValue:
+    """выполнить запрос, повторяя его при 429, пятисотых и обрыве связи"""
+    label = f"{request.get_method()} {request.full_url[len(API_ROOT):]}"
     last: str | None = None
+    pause = 0.0
     for attempt in range(1, RETRY_ATTEMPTS + 1):
         try:
-            with urllib.request.urlopen(request) as answer:
+            with urllib.request.urlopen(request, timeout=TIMEOUT_SEC) as answer:
                 payload = answer.read().decode()
                 return json.loads(payload) if payload else {}
         except urllib.error.HTTPError as failure:
@@ -239,21 +252,25 @@ def send(method: str, path: str, token: str | None, body: JsonDict | None) -> Js
             detail = failure.read().decode()[:500]
             if failure.code not in RETRY_ON:
                 raise ApiError(
-                    f"{method} {path} -> HTTP {failure.code}: "
-                    f"{detail}{_explain(failure.code)}"
+                    f"{label} -> HTTP {failure.code}: {detail}{_explain(failure.code)}"
                 ) from failure
             last = f"HTTP {failure.code}: {detail}"
-        except urllib.error.URLError as failure:
-            last = str(failure)
+            pause = RATE_PAUSE_SEC if failure.code == RATE_LIMITED else RETRY_PAUSE_SEC * attempt
+        # urllib оборачивает в URLError только ошибки отправки: обрыв на getresponse()
+        # и на чтении тела приходит как OSError или HTTPException
+        except (OSError, http.client.HTTPException) as failure:
+            last = repr(failure)
+            pause = RETRY_PAUSE_SEC * attempt
         if not retriable:
             raise ApiError(
-                f"{method} {path} -> {last}. Повтор не сделан: у POST без idempotencyKey"
+                f"{label} -> {last}. Повтор не сделан: у POST без idempotencyKey"
                 " он может создать дубль. Добавьте idempotencyKey и повторите."
             )
         if attempt < RETRY_ATTEMPTS:
-            print(f"попытка {attempt} не прошла ({last}), повтор", file=sys.stderr)
-            time.sleep(RETRY_PAUSE_SEC * attempt)
-    raise ApiError(f"{method} {path} -> не удалось за {RETRY_ATTEMPTS} попытки: {last}")
+            print(f"попытка {attempt} не прошла ({last}), повтор через {pause:.0f} с",
+                  file=sys.stderr)
+            time.sleep(pause)
+    raise ApiError(f"{label} -> не удалось за {RETRY_ATTEMPTS} попытки: {last}")
 
 
 # ─── хранение ключа ───────────────────────────────────────────────────
@@ -399,14 +416,9 @@ def upload_file(args: JsonDict) -> JsonValue:
             "Authorization": f"Bearer {read_key()}",
         },
     )
-    try:
-        with urllib.request.urlopen(request) as answer:
-            body = answer.read().decode()
-            return json.loads(body) if body else {}
-    except urllib.error.HTTPError as failure:
-        raise ApiError(
-            f"POST /upload-file -> HTTP {failure.code}: {failure.read().decode()[:500]}"
-        ) from failure
+    # повтор безопасен: оборвавшаяся загрузка оставит на сервере разве что копию файла,
+    # на которую ничто не ссылается, а видимых дублей, как у задач, не будет
+    return perform(request, True)
 
 
 def mask_keys(answer: JsonValue) -> JsonValue:
