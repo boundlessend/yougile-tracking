@@ -458,6 +458,21 @@ REQUIRED_BODY: Final[dict[str, tuple[str, ...]]] = {
 }
 
 
+def is_list(route: Route) -> bool:
+    """постраничный список: только у них есть limit, offset и обёртка content"""
+    return route.method == "GET" and "limit" in route.query
+
+
+def pick_fields(answer: JsonValue, fields: list[str]) -> JsonValue:
+    """оставить в строках списка только названные поля: весь вывод уходит в контекст агента"""
+    if not isinstance(answer, dict):
+        raise ApiError(f"ждали список с полем content, пришло: {str(answer)[:200]}")
+    rows: list[JsonDict] = []
+    for row in answer.get("content", []):
+        rows.append({name: row[name] for name in fields if name in row})
+    return answer | {"content": rows}
+
+
 def dispatch(tool: str, args: JsonDict) -> JsonValue:
     """выполнить инструмент по имени"""
     if tool in DIRECT:
@@ -468,6 +483,19 @@ def dispatch(tool: str, args: JsonDict) -> JsonValue:
     absent = [f for f in REQUIRED_BODY.get(tool, ()) if f not in args]
     if absent:
         raise UsageError(f"{tool}: не хватает обязательных полей: {', '.join(absent)}")
+    rest = dict(args)
+    fields = rest.pop("fields", None)
+    if fields is None:
+        return run_route(tool, route, rest)
+    if not is_list(route):
+        raise UsageError("'fields' работает только со списками")
+    if not isinstance(fields, list) or not all(isinstance(name, str) for name in fields):
+        raise UsageError("'fields' это массив имён полей, например [\"id\", \"title\"]")
+    return pick_fields(run_route(tool, route, rest), fields)
+
+
+def run_route(tool: str, route: Route, args: JsonDict) -> JsonValue:
+    """отправить запрос по маршруту, с обходом страниц при all"""
     if args.get("all"):
         return collect_pages(route, args)
     path, body = split_args(route, args)
@@ -482,7 +510,7 @@ def collect_pages(route: Route, args: JsonDict) -> JsonValue:
     пагинация - самая частая ошибка при работе с этим API: без неё в руках оказываются
     первые 50 строк, похожие на полный ответ
     """
-    if route.method != "GET" or "limit" not in route.query:
+    if not is_list(route):
         raise UsageError("'all' работает только со списками")
     token = read_key()
     query = dict(args)
@@ -551,6 +579,10 @@ def selfcheck() -> None:
     assert isinstance(masked, dict) and masked["content"][0]["key"] == "abcd..."
     assert mask_keys({"paging": {}}) == {"paging": {}}
 
+    page = {"paging": {"next": False}, "content": [{"id": "1", "title": "t", "description": "d"}]}
+    assert pick_fields(page, ["id", "absent"]) == {"paging": {"next": False}, "content": [{"id": "1"}]}
+    assert page["content"][0]["description"] == "d", "аргументы изменились"
+
     assert not set(DIRECT) & set(ROUTES), "инструмент объявлен дважды"
     assert set(REQUIRED_BODY) <= set(ROUTES), "проверка полей ссылается на несуществующий инструмент"
     assert _explain(401) and _explain(403) and not _explain(418)
@@ -561,6 +593,13 @@ def selfcheck() -> None:
         assert "textHtml" in str(failure) and "label" in str(failure), failure
     else:
         raise AssertionError("отсутствие обязательных полей должно ловиться до запроса")
+
+    try:
+        dispatch("tasks_get", {"id": "x", "fields": ["id"]})
+    except UsageError as failure:
+        assert "fields" in str(failure), failure
+    else:
+        raise AssertionError("fields вне списка должно ловиться до запроса")
 
     print(f"ок: инструментов {len(ROUTES) + len(DIRECT)}")
 
@@ -582,7 +621,8 @@ def main(argv: list[str]) -> int:
     except (ApiError, UsageError, json.JSONDecodeError) as failure:
         print(json.dumps({"error": str(failure)}, ensure_ascii=False), file=sys.stderr)
         return 1
-    print(json.dumps(result, ensure_ascii=False, indent=2))
+    # без отступов: вывод читает агент, а пробелы отступов съедают около четверти токенов
+    print(json.dumps(result, ensure_ascii=False, separators=(",", ":")))
     return 0
 
 
