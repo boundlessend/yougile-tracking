@@ -19,6 +19,16 @@ Python 3.9 или новее, только стандартная библиот
 YG=$(ls -d ~/.claude/plugins/cache/senya-plugins/yougile-tracking/*/skills/yougile-tracking/scripts/yg.py | tail -1)
 ```
 
+Другие агенты (Codex, Cursor, GitHub Copilot, Gemini CLI и те, что поддерживают эти установщики): скилл сделан по формату [Agent Skills](https://agentskills.io), подойдёт любая из команд:
+
+```
+npx skills add boundlessend/yougile-tracking
+gh skill install boundlessend/yougile-tracking yougile-tracking
+gemini extensions install https://github.com/boundlessend/yougile-tracking
+```
+
+Тогда `yg.py` лежит в папке `scripts/` там, куда агент поставил скилл.
+
 ## Ключ API
 
 Ключ получают один раз, в своём терминале: команда спросит почту и пароль от YouGile, а если компаний несколько, то и номер компании. Пароль читается скрытым вводом, поэтому через агента команду не запустить.
