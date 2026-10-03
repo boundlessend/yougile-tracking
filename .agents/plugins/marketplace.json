@@ -1,0 +1,56 @@
+{
+  "name": "senya-plugins",
+  "interface": {
+    "displayName": "Senya Plugins"
+  },
+  "plugins": [
+    {
+      "name": "yougile-tracking",
+      "source": {
+        "source": "local",
+        "path": "./"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_USE"
+      },
+      "category": "Productivity"
+    },
+    {
+      "name": "ru-science-search",
+      "source": {
+        "source": "url",
+        "url": "https://github.com/boundlessend/ru-science-search.git"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_USE"
+      },
+      "category": "Productivity"
+    },
+    {
+      "name": "roxy",
+      "source": {
+        "source": "url",
+        "url": "https://github.com/boundlessend/roxy.git"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_USE"
+      },
+      "category": "Education"
+    },
+    {
+      "name": "cutroom",
+      "source": {
+        "source": "url",
+        "url": "https://github.com/boundlessend/cutroom.git"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_USE"
+      },
+      "category": "Productivity"
+    }
+  ]
+}

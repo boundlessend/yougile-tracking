@@ -1,12 +1,14 @@
-# YouGile для Claude Code
+# YouGile для Claude Code и Codex
 
-Плагин Claude Code для работы с трекером [YouGile](https://yougile.com) через REST API v2: проекты, доски, колонки, задачи, сотрудники, отделы, роли, чаты, стикеры, вебхуки, загрузка файлов и контакты CRM. 70 инструментов: все 69 операций спецификации и `setup`.
+Плагин для Claude Code и Codex: работа с трекером [YouGile](https://yougile.com) через REST API v2. Проекты, доски, колонки, задачи, сотрудники, отделы, роли, чаты, стикеры, вебхуки, загрузка файлов и контакты CRM. 70 инструментов: все 69 операций спецификации и `setup`.
 
 ## Требования
 
 Python 3.9 или новее, только стандартная библиотека.
 
 ## Установка
+
+### Claude Code
 
 ```
 /plugin marketplace add boundlessend/yougile-tracking
@@ -19,7 +21,34 @@ Python 3.9 или новее, только стандартная библиот
 YG=$(ls -d ~/.claude/plugins/cache/senya-plugins/yougile-tracking/*/skills/yougile-tracking/scripts/yg.py | tail -1)
 ```
 
-Другие агенты (Codex, Cursor, GitHub Copilot, Gemini CLI и те, что поддерживают эти установщики): скилл сделан по формату [Agent Skills](https://agentskills.io), подойдёт любая из команд:
+### Codex
+
+```bash
+codex plugin marketplace add boundlessend/yougile-tracking
+codex plugin add yougile-tracking@senya-plugins
+```
+
+В приложении Codex откройте каталог плагинов, выберите источник **Senya Plugins** и установите **yougile-tracking**. После установки откройте новый чат.
+
+Этот источник также содержит `ru-science-search`, `roxy` и `cutroom`. Каждый плагин устанавливается отдельно:
+
+```bash
+codex plugin add ru-science-search@senya-plugins
+codex plugin add roxy@senya-plugins
+codex plugin add cutroom@senya-plugins
+```
+
+Для установки только скилла попросите Codex:
+
+```text
+$skill-installer install https://github.com/boundlessend/yougile-tracking/tree/main/skills/yougile-tracking
+```
+
+Для команд в терминале возьмите путь к установленному скиллу из его расположения в списке skills и задайте `YG="<skill dir>/scripts/yg.py"`.
+
+### Другие агенты
+
+Скилл сделан по формату [Agent Skills](https://agentskills.io). Выберите установщик, который поддерживает ваш агент:
 
 ```
 npx skills add boundlessend/yougile-tracking
@@ -57,12 +86,21 @@ python3 "$YG" tasks_create '{"title":"Починить форму входа","c
 
 ## Обновление
 
+Claude Code:
+
 ```bash
 claude plugin marketplace update senya-plugins
 claude plugin update yougile-tracking@senya-plugins
 ```
 
-После обновления перезапустите Claude Code.
+Codex:
+
+```bash
+codex plugin marketplace upgrade senya-plugins
+codex plugin add yougile-tracking@senya-plugins
+```
+
+После обновления перезапустите агент.
 
 ## Лицензия
 

@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "yougile-tracking",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "description": "Работа с трекером YouGile через REST API v2: задачи, доски, колонки, проекты, чаты, стикеры и вебхуки. 70 инструментов, покрывающих все операции спецификации, без сторонних зависимостей.",
   "author": {
     "name": "Arseni Okhrimenko",

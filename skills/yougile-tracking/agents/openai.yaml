@@ -1,0 +1,3 @@
+interface:
+  display_name: "YouGile"
+  short_description: "Задачи, проекты и доски YouGile через REST API"
